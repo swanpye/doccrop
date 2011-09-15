@@ -121,7 +121,32 @@ public abstract class AbstractController implements PropertyChangeListener {
 				method.invoke(model, newValue);
 
 			} catch (Exception ex) {
-
+				ex.printStackTrace();
+			}
+		}
+	}
+	/**
+	 * Convenience method that subclasses can call upon to fire off property
+	 * changes back to the models. This method used reflection to inspect each
+	 * of the model classes to determine if it is the owner of the property in
+	 * question. If it isn't, a NoSuchMethodException is throws (which the
+	 * method ignores).
+	 * 
+	 * @param propertyName
+	 *            The name of the property
+	 * @param newValue
+	 *            An object that represents the new value of the property.
+	 */
+	protected void refreshModelProperty(String methodName) {
+		
+		for (AbstractModel model : registeredModels) {
+			try {
+				Method method = model.getClass().getMethod(methodName,
+						null);
+				method.invoke(model, null);
+				
+			} catch (Exception ex) {
+				
 			}
 		}
 	}

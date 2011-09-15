@@ -534,6 +534,10 @@ public class CannyEdgeDetector implements EdgeDetector, AdjustableDetector {
 				}
 				offset++;
 			}
+			///////////////////Break point///////////////////////
+			if(	Thread.interrupted())
+				return;
+			/////////////////////////////////////////////////////
 		}
 	}
 

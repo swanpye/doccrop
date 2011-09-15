@@ -1,7 +1,13 @@
 package start;
 
+import java.awt.HeadlessException;
 import java.util.Locale;
 import java.util.ResourceBundle;
+
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
 
 import mvc.view.DocCropWindow;
 
@@ -37,13 +43,33 @@ public class DocCrop {
 
 	public static void main(String[] args) {
 		DocCropWindow dcWindow = null;
+
 		// Handle localization, for now, only support Swedish and
 		// American English
 		String lang_code = Locale.getDefault().toString();
 		if (lang_code.equals("sv_SE")) {
-			rBundle = ResourceBundle.getBundle("resource_sv_SE");
+			try {				
+				rBundle = ResourceBundle.getBundle("resource_sv_SE");
+			} catch (Exception e) {
+			 JOptionPane.showMessageDialog(new JFrame(), "Språkfilen kunde inte hittas","Fel", JOptionPane.ERROR_MESSAGE);
+			}
 		} else {
-			rBundle = ResourceBundle.getBundle("resource_en_US");
+			try {
+				rBundle = ResourceBundle.getBundle("resource_en_US");
+			} catch (HeadlessException e) {
+				JOptionPane.showMessageDialog(new JFrame(), "Language file was not found","Error", JOptionPane.ERROR_MESSAGE);
+				e.printStackTrace();
+			}
+		}
+		try {
+		    for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
+		        if ("Nimbus".equals(info.getName())) {
+		            UIManager.setLookAndFeel(info.getClassName());
+		            break;
+		        }
+		    }
+		} catch (Exception e) {
+		    // If Nimbus is not available, you can set the GUI to another look and feel.
 		}
 		dcWindow = new DocCropWindow();
 		dcWindow.setVisible(true);

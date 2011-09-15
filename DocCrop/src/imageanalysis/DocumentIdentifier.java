@@ -28,6 +28,7 @@ import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 
 import common.Document;
+import common.Document.DocumentType;
 import common.ImageUtilities;
 import common.PointUtilities;
 
@@ -53,6 +54,8 @@ public class DocumentIdentifier {
 	public static final String INTERSECTIONS_FILTERED = "intersections_filtered";
 
 	private String filePath;
+	private int[] padding = { 0, 0 };
+	private DocumentType docType;
 	private BufferedImage processImg;
 	private BufferedImage img;
 	private Document document;
@@ -65,7 +68,7 @@ public class DocumentIdentifier {
 	private static final int LOW = 0, HIGH = 1;
 	private int noisyThreshold = 15;
 	private float interToLineThreshold = 0.3f;
-	
+
 	// Identifier settings
 	private final int MAX_LINES_FOUND = 50;
 	private int MAX_NUM_TRIES = 3;
@@ -112,7 +115,7 @@ public class DocumentIdentifier {
 	/**
 	 * Identify the document in the loaded image. While running, the method
 	 * fires <code>propertyChangeEvents</code> to indicate in which state the
-	 * identification process currently is. 
+	 * identification process currently is.
 	 * 
 	 * @return The identified document
 	 */
@@ -128,7 +131,15 @@ public class DocumentIdentifier {
 
 		// Scale the image for faster processing
 		sourceImg = ImageUtilities.scaleImage(img, scaleFactor);
+		// /////////////////Break point///////////////////////
+		if (Thread.interrupted())
+			return null;
+		// ///////////////////////////////////////////////////
 		processImg = ImageUtilities.copyImage(sourceImg);
+		// /////////////////Break point///////////////////////
+		if (Thread.interrupted())
+			return null;
+		// ///////////////////////////////////////////////////
 
 		minimalDocumentArea = processImg.getHeight() * processImg.getWidth()
 				/ 4;
@@ -136,11 +147,19 @@ public class DocumentIdentifier {
 
 		// Convert image to grayscale, needed for further processing
 		sourceImg = ImageUtilities.convertToGrayScale(sourceImg);
+		// /////////////////Break point///////////////////////
+		if (Thread.interrupted())
+			return null;
+		// ///////////////////////////////////////////////////
 		firePropertyChange(IMAGE_GRAYSCALED, null, sourceImg);
 		BufferedImage original = ImageUtilities.copyImage(sourceImg);
+		// /////////////////Break point///////////////////////
+		if (Thread.interrupted())
+			return null;
+		// ///////////////////////////////////////////////////
 
-		
-		//Execute document identification steps until stop criteria is fulfilled 
+		// Execute document identification steps until stop criteria is
+		// fulfilled
 		while (tryAgain && tryNumber < MAX_NUM_TRIES) {
 			// Apply morphological operation, removing noise
 			sourceImg = morphOp.execute(original);
@@ -148,7 +167,22 @@ public class DocumentIdentifier {
 
 			// Detect edges
 			edgeDetector.setSourceImage(sourceImg);
+			
+			
+			// /////////////////Break point///////////////////////
+			if (Thread.interrupted())
+				return null;
+			// ///////////////////////////////////////////////////
+			
+			
 			edgeDetector.process();
+			
+			// /////////////////Break point///////////////////////
+			if (Thread.interrupted())
+				return null;
+			// ///////////////////////////////////////////////////
+			
+			
 			sourceImg = edgeDetector.getEdgesImage();
 			firePropertyChange(IMAGE_EDGE_DETECTED, null, sourceImg);
 
@@ -159,14 +193,25 @@ public class DocumentIdentifier {
 			Vector<HoughLine> lines = null;
 			Vector<Intersection> intersections = null;
 			boolean findMoreLines = true;
-			
-			//Find lines, iterate until enough lines has been found
+
+			// Find lines, iterate until enough lines has been found
 			do {
+				
+				// /////////////////Break point///////////////////////
+				if (Thread.interrupted())
+					return null;
+				// ///////////////////////////////////////////////////
+				
+				
 				houghData = HoughUtilities
 						.runHoughIterations(sourceImg, lineIterations,
 								lineThreshold[HIGH], lineThreshold[LOW]);
 				lines = houghData.getLines();
 				intersections = houghData.getIntersections();
+				// /////////////////Break point///////////////////////
+				if (Thread.interrupted())
+					return null;
+				// ///////////////////////////////////////////////////
 				firePropertyChange(IMAGE_HOUGH_TRANSFORMED, null, intersections);
 
 				// Filter out intersection points that are not located on one of
@@ -215,6 +260,7 @@ public class DocumentIdentifier {
 			Point[] minRect = PointUtilities.minimalEnclosingRectangle(
 					filterPoints, PointUtilities.METRIC_AREA);
 
+			
 			// If no minimal rectangle was created (for example when no points
 			// was supplied to the method)
 			// create a default rectangle with size 0.
@@ -227,28 +273,56 @@ public class DocumentIdentifier {
 				minRect[4] = new Point(0, 0);
 			}
 
+			//Map the cropping rectangle to fit the original image			
+			for(int i = 0; i < minRect.length; i++) {
+				minRect[i].x /= scaleFactor;
+				minRect[i].y /= scaleFactor;
+			}
+			
 			document = Document.toDocment(minRect[0], minRect[1], minRect[2],
 					minRect[3]);
+			document.setId(filePath);
 
+			// Apply pre set padding
+			document.setHeight(document.getHeight() + padding[1]);
+			document.setWidth(document.getWidth() + padding[0]);
+
+			// /////////////////Break point///////////////////////
+			if (Thread.interrupted())
+				return null;
+			// ///////////////////////////////////////////////////
 			
-			if (lines.size() > noisyThreshold || intersections.size()/lines.size() < interToLineThreshold) {
-				int maxShapeSize = Math.min(processImg.getWidth(), processImg.getHeight())/50;
+			
+			if (lines.size() > noisyThreshold
+					|| intersections.size() / lines.size() < interToLineThreshold) {
+				int maxShapeSize = Math.min(processImg.getWidth(),
+						processImg.getHeight()) / 50;
 				int shapeSize = morphOp.getShapeSize();
-				if(morphOp instanceof Closing || morphOp instanceof Opening || morphOp instanceof None) {
-					morphOp = new Erosion(STRUCTURING_ELEMENT_SHAPE.SQUARE,shapeSize);
-				} else if(morphOp instanceof Dilation && shapeSize < maxShapeSize) {
-					morphOp = new Dilation(STRUCTURING_ELEMENT_SHAPE.SQUARE,++shapeSize);
-				}  else if(morphOp instanceof Erosion && shapeSize < maxShapeSize) {
-					morphOp = new Erosion(STRUCTURING_ELEMENT_SHAPE.SQUARE,++shapeSize);
+				if (morphOp instanceof Closing || morphOp instanceof Opening
+						|| morphOp instanceof None) {
+					morphOp = new Erosion(STRUCTURING_ELEMENT_SHAPE.SQUARE,
+							shapeSize);
+				} else if (morphOp instanceof Dilation
+						&& shapeSize < maxShapeSize) {
+					morphOp = new Dilation(STRUCTURING_ELEMENT_SHAPE.SQUARE,
+							++shapeSize);
+				} else if (morphOp instanceof Erosion
+						&& shapeSize < maxShapeSize) {
+					morphOp = new Erosion(STRUCTURING_ELEMENT_SHAPE.SQUARE,
+							++shapeSize);
 				}
 				System.out.println("Adjusting morphological operation...");
 				continue;
 			}
-			
+			// /////////////////Break point///////////////////////
+			if (Thread.interrupted())
+				return null;
+			// ///////////////////////////////////////////////////
 			if (isOutsideImage(minRect)) {
 				// If there are many intersection points, try to make the image
 				// smoother...
-				if (lines.size() > noisyThreshold || intersections.size()/lines.size() < interToLineThreshold
+				if (lines.size() > noisyThreshold
+						|| intersections.size() / lines.size() < interToLineThreshold
 						&& filteredIntersections.size() > 4) {
 					int opSize = morphOp.getShapeSize();
 					// If the structuring element is relatively small, make it
@@ -265,7 +339,7 @@ public class DocumentIdentifier {
 
 				// If the identified document has to small area, adjust the edge
 				// detector
-			} else if (document.getArea() <= minimalDocumentArea) {
+			} else if (document.getArea() <= minimalDocumentArea/scaleFactor) {
 				tryAgain = adjustEdgeDetector();
 
 			} else {
@@ -279,7 +353,6 @@ public class DocumentIdentifier {
 
 		return document;
 	}
-
 
 	/**
 	 * Adjust the edge detector to produce a better result
@@ -312,9 +385,9 @@ public class DocumentIdentifier {
 
 	private boolean isOutsideImage(Point[] points) {
 		for (int i = 0; i < points.length; i++) {
-			if (points[i].x < 0 || points[i].x >= processImg.getWidth())
+			if (points[i].x < 0 || points[i].x >= img.getWidth())
 				return true;
-			else if (points[i].y < 0 || points[i].y >= processImg.getHeight())
+			else if (points[i].y < 0 || points[i].y >= img.getHeight())
 				return true;
 		}
 		return false;
@@ -337,6 +410,11 @@ public class DocumentIdentifier {
 		else {
 			BufferedImage markedImg = ImageUtilities.copyImage(processImg);
 			Point[] corners = document.toArray();
+			//Map the cropping rectangle to fit the process image	
+			for(int i = 0; i < corners.length; i++) {
+				corners[i].x *= scaleFactor;
+				corners[i].y *= scaleFactor;
+			}
 			Graphics g = markedImg.getGraphics();
 			int[] x = new int[corners.length];
 			int[] y = new int[corners.length];
@@ -463,6 +541,62 @@ public class DocumentIdentifier {
 		return document;
 	}
 
+	/**
+	 * Set the type of document the documentIdentifier should look for
+	 * 
+	 * @param docType
+	 *            The type of document @see {@link Document.DocumentType}
+	 */
+	public void setDocumentType(DocumentType docType) {
+		this.docType = docType;
+	}
+
+	/**
+	 * Get the document type the documentIdentifier is looking for
+	 * 
+	 * @return
+	 */
+	public DocumentType getDocumentType() {
+		return docType;
+	}
+
+	/**
+	 * Set the padding that the documentIdentifier should apply to the document
+	 * after identification
+	 * 
+	 * @param width
+	 *            The amount of padding applied to the width of the document
+	 * @param height
+	 *            The amount of padding applied to the height of the document
+	 */
+	public void setPadding(int width, int height) {
+		padding[0] = width;
+		padding[1] = height;
+	}
+
+	/**
+	 * Set the padding that the documentIdentifier should apply to the document
+	 * after identification
+	 * 
+	 * @param padding
+	 *            The amount of padding applied to the width and height
+	 *            respectively of the document
+	 * 
+	 */
+	public void setPadding(int[] padding) {
+		this.padding = padding;
+	}
+
+	/**
+	 * Returns the padding which the documentIdentifier applies to the document
+	 * after identification
+	 * 
+	 * @return The padding {width, height}
+	 */
+	public int[] getPadding() {
+		return padding;
+	}
+
 	public static void main(String[] args) {
 
 		final JFrame f = new JFrame();
@@ -471,10 +605,10 @@ public class DocumentIdentifier {
 		f.setVisible(true);
 		f.pack();
 
-		for (int i = 1; i <= 50; i++) {
+		for (int i = 1; i <= 1; i++) {
 
-			DocumentIdentifier docIdent = new DocumentIdentifier("src/images/"
-					+ i + ".png");
+			DocumentIdentifier docIdent = new DocumentIdentifier(
+					"./src/images/" + i + ".tif");
 
 			try {
 				docIdent.load();
@@ -488,7 +622,6 @@ public class DocumentIdentifier {
 
 			final int imgNr = i;
 			SwingUtilities.invokeLater(new Runnable() {
-
 
 				@Override
 				public void run() {

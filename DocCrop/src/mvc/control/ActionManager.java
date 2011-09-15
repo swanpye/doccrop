@@ -1,7 +1,6 @@
 package mvc.control;
 
 import java.awt.event.ActionEvent;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.HashMap;

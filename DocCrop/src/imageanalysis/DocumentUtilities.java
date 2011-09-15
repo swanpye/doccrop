@@ -28,8 +28,7 @@ public class DocumentUtilities {
 			return null;
 		if (documents.size() < medianWindowSize
 				&& positionMode == MEDIAN_POSITION) {
-			throw new IllegalArgumentException(
-					"The median window size must be smaller or equal to the size of the document vector");
+			return documents;
 		}
 		return correctDocuments(documents, MEDIAN_POSITION, 0.5);
 	}
@@ -40,8 +39,7 @@ public class DocumentUtilities {
 			return null;
 		if (documents.size() < medianWindowSize
 				&& positionMode == MEDIAN_POSITION) {
-			throw new IllegalArgumentException(
-					"The median window size must be smaller or equal to the size of the document vector");
+			return documents;
 		}
 		if (dimensionQuantile < 0 || dimensionQuantile > 1)
 			throw new IllegalArgumentException(
@@ -51,22 +49,25 @@ public class DocumentUtilities {
 		Vector<Document> toReturn = new Vector<Document>();
 
 		// Compute quantile dimension of the documents
-		int[][] dim = new int[2][size];
+		int[][] dim = new int[3][size];
 		for (int i = 0; i < size; i++) {
 			dim[0][i] = documents.get(i).getWidth();
 			dim[1][i] = documents.get(i).getHeight();
+			dim[2][i] = documents.get(i).getRotation();
 		}
 		Arrays.sort(dim[0]);
 		Arrays.sort(dim[1]);
+		Arrays.sort(dim[2]);
 		Point correctedDim = new Point(
 				dim[0][(int) (size * dimensionQuantile)],
 				dim[1][(int) (size * dimensionQuantile)]);
-
+		int correctedRot = dim[2][(int) (size*dimensionQuantile)];
+		
 		switch (positionMode) {
 		case MEDIAN_POSITION:
 			for (int i = 0; i < size; i++) {
 				toReturn.add(new Document(correctPosition(documents, i),
-						correctedDim.x, correctedDim.y));
+						correctedDim.x, correctedDim.y,correctedRot, documents.get(i).getId()));
 			}
 			break;
 		case LINEAR_POSITION:

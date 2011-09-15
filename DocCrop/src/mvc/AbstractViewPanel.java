@@ -10,6 +10,7 @@
 package mvc;
 
 import java.beans.PropertyChangeEvent;
+
 import javax.swing.JPanel;
 
 /**

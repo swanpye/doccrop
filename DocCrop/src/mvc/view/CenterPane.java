@@ -34,14 +34,14 @@ import mvc.AbstractViewPanel;
 import mvc.control.Action;
 import mvc.control.ActionManager;
 import mvc.control.ImageBatchController;
-import mvc.model.ImageBatch;
 import mvc.model.BatchTableModel;
-import mvc.model.ImageBatches;
+import mvc.model.ImageBatch;
 import mvc.model.ImageBatch.BatchProgressBar;
 import mvc.model.ImageBatch.DocumentBehavior;
-import mvc.model.ImageBatch.DocumentType;
+import mvc.model.ImageBatches;
 import start.DocCrop;
 
+import common.Document.DocumentType;
 
 @SuppressWarnings("serial")
 public class CenterPane extends AbstractViewPanel {
@@ -49,7 +49,6 @@ public class CenterPane extends AbstractViewPanel {
 	private ResourceBundle rBundle = DocCrop.rBundle;
 	private ActionManager actionManager = null;
 	private JTable batchTable = null;
-	private ImageBatches batchModel;
 	private BatchTableModel tableModel;
 	private JTabbedPane tabPane = null;
 	private JPanel overviewCard = null;
@@ -62,11 +61,21 @@ public class CenterPane extends AbstractViewPanel {
 	private JLabel batchLabel = null;
 	private CollapsablePanel colPanel = null;
 
-	public CenterPane(ImageBatchController controller, ImageBatches batchModel) {
+	/**
+	 * Create CenterPane that visualizes the data stored in the models connected
+	 * to the supplied controller. The controller is automatically connected to
+	 * this view, so explicit code for connecting this view is neccesary
+	 * 
+	 * @param controller
+	 *            A controller connected with a suitable model (
+	 *            <code>ImageBatches</code>, or a subclass of it.)
+	 */
+	public CenterPane(ImageBatchController controller) {
 		super();
+		controller.addView(this);
+		tableModel = new BatchTableModel();
 		setLayout(new BorderLayout());
 		actionManager = new ActionManager(this, rBundle);
-		this.batchModel = batchModel;
 		tabPane = new JTabbedPane();
 		tabPane.setLayout(new BorderLayout());
 		tabPane.setUI(new BasicTabbedPaneUI() {
@@ -86,18 +95,17 @@ public class CenterPane extends AbstractViewPanel {
 	private void initOverviewCard() {
 		overviewCard = new JPanel();
 		overviewCard.setLayout(new BorderLayout());
-		batchLabel = new JLabel(rBundle.getString("mvc.view.CenterPane.batchLabel"));
+		batchLabel = new JLabel(
+				rBundle.getString("mvc.view.CenterPane.batchLabel"));
 		batchLabel.setHorizontalAlignment(SwingConstants.CENTER);
-		
-		tableModel = new BatchTableModel(batchModel);
 		batchTable = new JTable(tableModel);
 		batchTable.getSelectionModel().addListSelectionListener(
 				new ListSelectionListener() {
 
 					@Override
 					public void valueChanged(ListSelectionEvent e) {
-						ImageBatch selectedBatch = tableModel.getBatchAt(batchTable
-								.getSelectedRow());
+						ImageBatch selectedBatch = tableModel
+								.getBatchAt(batchTable.getSelectedRow());
 						if (selectedBatch != null) {
 							actionManager.getAction("apply").setEnabled(true);
 							switch (selectedBatch.getDocBehavior()) {
@@ -113,34 +121,39 @@ public class CenterPane extends AbstractViewPanel {
 							}
 
 							switch (selectedBatch.getDocType()) {
-							case SINGLE:
+							case SINGLE_PAGE:
 								singleButton.setSelected(true);
 								break;
-							case DOUBLE:
+							case DOUBLE_PAGE:
 								doubleButton.setSelected(true);
 								break;
 							default:
 								System.out
 										.println("Document type should be set");
 							}
-							paddingFieldX.setText(selectedBatch.getPadding()[0] + "");
-							paddingFieldY.setText(selectedBatch.getPadding()[1] + "");
+							paddingFieldX.setText(selectedBatch.getPadding()[0]
+									+ "");
+							paddingFieldY.setText(selectedBatch.getPadding()[1]
+									+ "");
 						}
 
 					}
 				});
 
-		batchTable.getColumnModel().getColumn(0).setCellRenderer(new BatchRenderer());
-		batchTable.getColumnModel().getColumn(3).setCellRenderer(new TableCellRenderer() {
-			
-			@Override
-			public Component getTableCellRendererComponent(JTable table, Object value,
-					boolean isSelected, boolean hasFocus, int row, int column) {
-				BatchProgressBar b = (BatchProgressBar) value;
-				
-				return b;
-			}
-		});
+		batchTable.getColumnModel().getColumn(0)
+				.setCellRenderer(new BatchRenderer());
+		batchTable.getColumnModel().getColumn(3)
+				.setCellRenderer(new TableCellRenderer() {
+
+					@Override
+					public Component getTableCellRendererComponent(
+							JTable table, Object value, boolean isSelected,
+							boolean hasFocus, int row, int column) {
+						BatchProgressBar b = (BatchProgressBar) value;
+
+						return b;
+					}
+				});
 		batchTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 		JScrollPane tableScroll = new JScrollPane(batchTable);
 		batchTable.setFillsViewportHeight(true);
@@ -157,21 +170,24 @@ public class CenterPane extends AbstractViewPanel {
 
 		GridBagConstraints c = new GridBagConstraints();
 		c.fill = GridBagConstraints.BOTH;
-		Border border = BorderFactory.createTitledBorder(rBundle.getString("mvc.view.CenterPane.documentType"));
+		Border border = BorderFactory.createTitledBorder(rBundle
+				.getString("mvc.view.CenterPane.documentType"));
 		JPanel documentTypePanel = new JPanel();
 		documentTypePanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		documentTypePanel.setBorder(border);
-		
-			
+
 		class MyActionListener implements ActionListener {
 			@Override
 			public void actionPerformed(ActionEvent e) {
-				actionManager.getAction("apply").setEnabled(true);				
+				actionManager.getAction("apply").setEnabled(true);
 			}
-		};
-		singleButton = new JRadioButton(rBundle.getString("mvc.view.CenterPane.single"));
+		}
+		;
+		singleButton = new JRadioButton(
+				rBundle.getString("mvc.view.CenterPane.single"));
 		singleButton.addActionListener(new MyActionListener());
-		doubleButton = new JRadioButton(rBundle.getString("mvc.view.CenterPane.double"));
+		doubleButton = new JRadioButton(
+				rBundle.getString("mvc.view.CenterPane.double"));
 		doubleButton.addActionListener(new MyActionListener());
 		ButtonGroup buttonGroup1 = new ButtonGroup();
 		buttonGroup1.add(singleButton);
@@ -179,14 +195,17 @@ public class CenterPane extends AbstractViewPanel {
 		documentTypePanel.add(singleButton);
 		documentTypePanel.add(doubleButton);
 
-		border = BorderFactory.createTitledBorder(rBundle.getString("mvc.view.CenterPane.documentBehavior"));
+		border = BorderFactory.createTitledBorder(rBundle
+				.getString("mvc.view.CenterPane.documentBehavior"));
 
 		JPanel documentBehaviorPanel = new JPanel();
 		documentBehaviorPanel.setLayout(new FlowLayout(FlowLayout.LEFT));
 		documentBehaviorPanel.setBorder(border);
-		simpleButton = new JRadioButton(rBundle.getString("mvc.view.CenterPane.simple"));
+		simpleButton = new JRadioButton(
+				rBundle.getString("mvc.view.CenterPane.simple"));
 		simpleButton.addActionListener(new MyActionListener());
-		complexButton = new JRadioButton(rBundle.getString("mvc.view.CenterPane.complex"));
+		complexButton = new JRadioButton(
+				rBundle.getString("mvc.view.CenterPane.complex"));
 		complexButton.addActionListener(new MyActionListener());
 		ButtonGroup buttonGroup2 = new ButtonGroup();
 		buttonGroup2.add(simpleButton);
@@ -194,32 +213,37 @@ public class CenterPane extends AbstractViewPanel {
 		documentBehaviorPanel.add(simpleButton);
 		documentBehaviorPanel.add(complexButton);
 
-		border = BorderFactory.createTitledBorder(rBundle.getString("mvc.view.CenterPane.padding"));
+		border = BorderFactory.createTitledBorder(rBundle
+				.getString("mvc.view.CenterPane.padding"));
 		JPanel paddingPanel = new JPanel(new GridBagLayout());
 		paddingPanel.setBorder(border);
 		paddingFieldX = new IntegerField();
 		paddingFieldY = new IntegerField();
 		paddingFieldX.addActionListener(new MyActionListener());
 		paddingFieldY.addActionListener(new MyActionListener());
-		
-		paddingFieldX.setPreferredSize(new Dimension(30, 20));
+
+		paddingFieldX.setPreferredSize(new Dimension(30, 23));
 		paddingFieldX.setColumns(3);
-		paddingFieldY.setPreferredSize(new Dimension(30, 20));
+		paddingFieldY.setPreferredSize(new Dimension(30, 23));
 		paddingFieldY.setColumns(3);
-		JLabel xLabel = new JLabel("x");
+		JLabel xLabel = new JLabel(
+				rBundle.getString("mvc.view.CenterPane.width"));
 		xLabel.setHorizontalAlignment(SwingConstants.CENTER);
-		JLabel yLabel = new JLabel("y");
+		JLabel yLabel = new JLabel(
+				rBundle.getString("mvc.view.CenterPane.height"));
 		yLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-		paddingPanel.add(xLabel,c);
+		paddingPanel.add(xLabel, c);
 		c.gridx = 1;
-		paddingPanel.add(yLabel,c);
-		c.gridy = 1; c.gridx = 0;
-		paddingPanel.add(paddingFieldX,c);
+		paddingPanel.add(yLabel, c);
+		c.gridy = 1;
+		c.gridx = 0;
+		paddingPanel.add(paddingFieldX, c);
 		c.gridx = 1;
-		paddingPanel.add(paddingFieldY,c);
+		paddingPanel.add(paddingFieldY, c);
 
-		c.gridx = 0; c.gridy = 0;
+		c.gridx = 0;
+		c.gridy = 0;
 		settingsPanel.add(documentTypePanel, c);
 		c.gridx = 1;
 		settingsPanel.add(documentBehaviorPanel, c);
@@ -227,7 +251,7 @@ public class CenterPane extends AbstractViewPanel {
 		settingsPanel.add(paddingPanel, c);
 
 		settingsButton = new JButton(actionManager.getAction("apply"));
-		
+
 		c.gridy = 1;
 		c.gridx = 0;
 		settingsPanel.add(settingsButton, c);
@@ -250,15 +274,13 @@ public class CenterPane extends AbstractViewPanel {
 	@Override
 	public void modelPropertyChange(PropertyChangeEvent evt) {
 		String eventName = evt.getPropertyName();
-		System.out.println(eventName);
 		if (eventName.equals(ImageBatchController.NEW_BATCHES)) {
-			tableModel.updateBatches(batchModel);
-		} else if(eventName.equals(ImageBatchController.PROGRESS)) {
+			tableModel.updateBatches((ImageBatches) evt.getNewValue());
+		} else if (eventName.equals(ImageBatchController.PROGRESS)) {
 			tableModel.updateProgress();
 		}
 	}
-	
-	
+
 	@Action
 	public void apply() {
 		ImageBatch b = tableModel.getBatchAt(batchTable.getSelectedRow());
@@ -268,25 +290,25 @@ public class CenterPane extends AbstractViewPanel {
 			b.setDocBehavior(DocumentBehavior.COMPLEX);
 		}
 		if (singleButton.isSelected()) {
-			b.setDocType(DocumentType.SINGLE);
+			b.setDocType(DocumentType.SINGLE_PAGE);
 		} else {
-			b.setDocType(DocumentType.DOUBLE);
+			b.setDocType(DocumentType.DOUBLE_PAGE);
 		}
 		int xPad, yPad;
 		try {
-		xPad = Integer.parseInt(paddingFieldX.getText());
-		}catch(NumberFormatException ne) {
+			xPad = Integer.parseInt(paddingFieldX.getText());
+		} catch (NumberFormatException ne) {
 			xPad = 0;
 			paddingFieldX.setInt(0);
 		}
 		try {
 			yPad = Integer.parseInt(paddingFieldY.getText());
-		}catch(NumberFormatException ne) {
+		} catch (NumberFormatException ne) {
 			yPad = 0;
 			paddingFieldY.setInt(0);
 		}
 
-		b.setPadding(new int[] {xPad,yPad});
+		b.setPadding(new int[] { xPad, yPad });
 		actionManager.getAction("apply").setEnabled(false);
 	}
 }

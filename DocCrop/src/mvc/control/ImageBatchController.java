@@ -1,18 +1,7 @@
 package mvc.control;
 
-import imageanalysis.DocumentIdentifier;
-import imageanalysis.DocumentUtilities;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.Collection;
-import java.util.Vector;
-
 import mvc.AbstractController;
 import mvc.model.ImageBatch;
-import mvc.model.ImageBatches;
-
-import common.Document;
 
 /**
  * This controller implements the required methods and provides the properties
@@ -28,59 +17,65 @@ public class ImageBatchController extends AbstractController {
 	 * A new set of batches has been chosen.
 	 */
 	public static final String NEW_BATCHES = "Batches";
+	/**
+	 * Documents of a model has been updated
+	 */
 	public static final String NEW_DOCUMENTS = "Documents";
+	/**
+	 * Indication that a new preview of the cropping is available
+	 */
+	public static final String PREVIEW = "Preview";
+	/**
+	 * Indication that progress of batch analysis has been made
+	 */
 	public static final String PROGRESS = "Progress";
-	private ImageBatches currentBatches = null;
-	private volatile boolean stopRequest = false;
+	/**
+	 * Indicate if the preview should be shown
+	 */
+	public static final String SHOW_PREVIEW = "PreviewVisibility";
+	/**
+	 * String used for calling the method analyzeBatches in the connected models
+	 */
+	private static final String ANALYZE_BATCHES = "analyzeBatches";
+	/**
+	 * String used for issuing a stop request, aborting current batch analysis
+	 * of the connected models
+	 */
+	private static final String STOP_REQUEST = "StopRequest";
+	
+	private static final String CLEAR_BATCHES = "clearBatches";
 
+	/**
+	 * Reset progress
+	 */
+	private static final String RESET = "reset";
 	/**
 	 * Change the batches that should be processed
 	 * 
 	 * @param newBatches
 	 *            The new set of batches
 	 */
-	public void changeBatches(File[] newBatches) {
-		ImageBatches batch = new ImageBatches(newBatches);
-		addModel(batch);
-		currentBatches = batch;
-		setModelProperty(NEW_BATCHES, batch.getBatches());
+	public void changeBatches(ImageBatch[] newBatches) {
+		setModelProperty(NEW_BATCHES, newBatches);
 	}
 
-	public Collection<Document> AnalyzeBatches() {
-		stopRequest = false;
-		ImageBatches batches = currentBatches;
-		final ImageBatch[] batch = batches.getBatches();
+	public void AnalyzeBatches() {
+		refreshModelProperty(ANALYZE_BATCHES);
+	}
 
-		Vector<Document> docs = new Vector<Document>();
-		for (int i = 0; i < batch.length; i++) {
-			File[] files = batch[i].getFiles();
-			
-			for (int j = 0; j < files.length; j++) {
-				try {
-					Thread.sleep(10);
-				} catch(InterruptedException ie) {
-					if(stopRequest == true)
-					return null;
-				}
-				DocumentIdentifier docIdent = new DocumentIdentifier(
-						files[j].getPath());
-				try {
-					docIdent.load();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-				docs.add(docIdent.identify());
-				batch[i].setProgress(j+1);
-				
-			}
-		}
-		setModelProperty(NEW_DOCUMENTS,
-				DocumentUtilities.correctDocuments(docs));
-		return DocumentUtilities.correctDocuments(docs);
+	public void stopRequest() {
+		setModelProperty(STOP_REQUEST, true);
+	}
 
+	public void setPreviewVisibility(boolean isVisible) {
+		setModelProperty(SHOW_PREVIEW, isVisible);
 	}
 	
-	public void stopRequest() {
-		stopRequest = true;
+	public void reset() {
+		refreshModelProperty(RESET);
+	}
+	
+	public void clearBatches() {
+		refreshModelProperty(CLEAR_BATCHES);
 	}
 }

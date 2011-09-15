@@ -18,7 +18,9 @@ package mvc.view;
  * License along with this library; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+import java.awt.Event;
 import java.awt.Toolkit;
+import java.awt.event.KeyEvent;
 
 import javax.swing.JTextField;
 import javax.swing.text.AttributeSet;
@@ -30,11 +32,13 @@ import javax.swing.text.PlainDocument;
  * This class is a <CODE>TextField</CODE> that only allows integer values to be
  * entered into it.
  * 
- * @author <A HREF="mailto:colbell@users.sourceforge.net">Colin Bell</A>, Tomas Toss
- */	
+ * @author <A HREF="mailto:colbell@users.sourceforge.net">Colin Bell</A>, Tomas
+ *         Toss
+ */
 public class IntegerField extends JTextField {
 
 	private static final long serialVersionUID = 1L;
+	private int min, max, length;
 
 	/**
 	 * Default constructor.
@@ -53,6 +57,7 @@ public class IntegerField extends JTextField {
 		super(cols);
 	}
 
+
 	/**
 	 * Retrieve the contents of this field as an <code>int</code>.
 	 * 
@@ -64,6 +69,18 @@ public class IntegerField extends JTextField {
 			return 0;
 		}
 		return Integer.parseInt(text);
+	}
+
+	public void setMinMaxValues(int min, int max) {
+		if (min <= max && min >= 0) {
+			this.min = min;
+			this.max = max;
+			this.length = new Integer(this.max).toString().length();
+		} else if (min >= max && max >= 0) {
+			this.min = max;
+			this.max = min;
+			this.length = new Integer(this.max).toString().length();
+		}
 	}
 
 	/**
@@ -89,7 +106,7 @@ public class IntegerField extends JTextField {
 	/**
 	 * This document only allows integral values to be added to it.
 	 */
-	static class IntegerDocument extends PlainDocument {
+	class IntegerDocument extends PlainDocument {
 
 		/**
 		 * 
@@ -100,19 +117,28 @@ public class IntegerField extends JTextField {
 				throws BadLocationException {
 			if (str != null) {
 				try {
-					if (offs == 0 && str.equals("-")
-							&& !getText(0, 1).equals("-"))
-						if (getLength() + str.length() > 3) {
+					int insertInt = Integer.decode(str);
+					String currentString = getText(0, getLength());
+
+					if (currentString.equals("")) {
+						if (insertInt >= min && insertInt <= max) {
+							// It's okay
 						} else {
-							super.insertString(offs, str, a);
+							throw new NumberFormatException();
 						}
-					else {
-						Integer.decode(str);
-						if (getLength() + str.length() > 2) {
+					} else {
+						int newInt = Integer.decode(currentString.concat(str));
+						if (newInt >= min && newInt <= max) {
+							// It's okay
 						} else {
-							super.insertString(offs, str, a);
+							throw new NumberFormatException();
 						}
 					}
+					if (getLength() + str.length() > length) {
+					} else {
+						super.insertString(offs, str, a);
+					}
+
 				} catch (NumberFormatException ex) {
 					Toolkit.getDefaultToolkit().beep();
 				}
