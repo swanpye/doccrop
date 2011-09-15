@@ -1,11 +1,27 @@
 package mvc.model;
 
+import imageanalysis.DocumentIdentifier;
+import imageanalysis.DocumentUtilities;
+
+import java.awt.Color;
+import java.awt.Dimension;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FilenameFilter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Vector;
 
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
+import javax.swing.SwingUtilities;
 
 import common.Document;
+import common.Document.DocumentType;
+import common.ImageBatchSettings;
+import common.ImageUtilities;
 
 /**
  * This class represents a batch of image files. A batch contains, in addition
@@ -15,13 +31,6 @@ import common.Document;
  * 
  */
 public class ImageBatch {
-	/**
-	 * A document batch can be classified either as single paged or as double
-	 * paged
-	 */
-	public enum DocumentType {
-		SINGLE, DOUBLE
-	}
 
 	/**
 	 * A document batch have either simple of complex behavior. SIMPLE - Use
@@ -37,44 +46,77 @@ public class ImageBatch {
 		SIMPLE, COMPLEX
 	}
 
+	private volatile boolean stopRequest = false;
 	ImageBatches parent;
 	private DocumentType docType;
 	private DocumentBehavior docBehavior;
-	private Document doc;
+	private Document[] docs;
 	private String batchPath;
 	private File[] files;
 	private BatchProgressBar progressBar;
 	private int length;
 	private int[] padding = { 0, 0 };
+	private ArrayList<String> fileSuffixes = new ArrayList<String>();
 
-	public ImageBatch(ImageBatches parent, File batch, final String fileFilter) {
+	public ImageBatch(File batch, ImageBatchSettings settings) {
+		this(null, batch, settings);
+	}
+
+	public ImageBatch(ImageBatches parent, File batch,
+			ImageBatchSettings settings) {
 		this.parent = parent;
-		this.batchPath = batch.getPath();
 		// Set document behavior to simple and single as standard
-		docBehavior = DocumentBehavior.SIMPLE;
-		docType = DocumentType.SINGLE;
+		docBehavior = settings.getBehaviour();
+		docType = settings.getType();
+		padding[0] = settings.getPaddingWidth();
+		padding[1] = settings.getPaddingHeight();
+		final String[] fileFilter = settings.getFileFilter();
 		// If the batch is a directory, add all the files in that directory
 		// to the File[], else set the File[] only to contain batch
 		if (batch.isDirectory()) {
+			this.batchPath = batch.getPath();
 			// Filter out all files except for the ones conforming with the
 			// filter
 			files = batch.listFiles(new FilenameFilter() {
 
 				@Override
 				public boolean accept(File dir, String name) {
-					if (name.endsWith(fileFilter))
-						return true;
-					else
-						return false;
+					for (int i = 0; i < fileFilter.length; i++) {
+						if (name.endsWith(fileFilter[i]))
+							return true;
+					}
+					return false;
 				}
 			});
 		} else {
-			if (batchPath.endsWith(fileFilter)) {
-				files = new File[1];
-				files[0] = batch;
+			this.batchPath = batch.getParent();
+			for (int i = 0; i < fileFilter.length; i++) {
+				if (batch.getPath().endsWith(fileFilter[i])) {
+					files = new File[1];
+					files[0] = batch;
+					break;
+				}
 			}
 		}
-		length = files.length;
+		if (files == null) {
+			length = 0;
+		} else {
+			length = files.length;
+			
+			//Get all file suffixes in the batch
+			for (int i = 0; i < length; i++) {
+				int dotIndex = files[i].getName().indexOf(".");
+				if (dotIndex == -1) {
+				} else {
+					String suffix = files[i].getName().substring(dotIndex);
+					if (fileSuffixes.contains(suffix)) {
+
+					} else {
+						fileSuffixes.add(suffix);
+					}
+				}
+			}
+		}
 		progressBar = new BatchProgressBar();
 	}
 
@@ -145,12 +187,62 @@ public class ImageBatch {
 		this.padding = padding;
 	}
 
-	public void setDocument(Document doc) {
-		this.doc = doc;
+	public void setDocuments(Document[] docs) {
+		this.docs = docs;
 	}
 
-	public Document getDocument() {
-		return doc;
+	public Document[] getDocuments() {
+		return docs;
+	}
+
+	public void setParent(ImageBatches parent) {
+		this.parent = parent;
+	}
+
+	public ImageBatches getParent() {
+		return parent;
+	}
+
+	public String[] getFileSuffixes() {
+		return fileSuffixes.toArray(new String[fileSuffixes.size()]);
+	}
+	public void stopRequest() {
+		stopRequest = true;
+	}
+
+	public boolean analyzeBatches() {
+		stopRequest = false;
+		Vector<Document> documentBatch = new Vector<Document>();
+		for (int j = 0; j < files.length; j++) {
+			try {
+				Thread.sleep(10);
+			} catch (InterruptedException ie) {
+				if (stopRequest == true)
+					return false;
+			}
+			DocumentIdentifier docIdent = new DocumentIdentifier(
+					files[j].getPath());
+			docIdent.setPadding(padding);
+			docIdent.setDocumentType(docType);
+
+			try {
+				docIdent.load();
+			} catch (IOException e) {
+				String stackTrace = "";
+				for (int i = 0; i < e.getStackTrace().length; i++) {
+					stackTrace += e.getStackTrace()[i].toString() + "\n";
+				}
+				JOptionPane.showMessageDialog(new JFrame(), stackTrace);
+			}
+			documentBatch.add(docIdent.identify());
+			parent.updatePreview(docIdent.markDocument(new Color(0.5f, 1.0f,
+					0.0f, 0.4f)));
+			setProgress(j + 1);
+		}
+		documentBatch = DocumentUtilities.correctDocuments(documentBatch);
+		docs = new Document[documentBatch.size()];
+		docs = documentBatch.toArray(docs);
+		return true;
 	}
 
 	@SuppressWarnings("serial")
@@ -164,13 +256,14 @@ public class ImageBatch {
 		}
 
 		public void setProgress(int progress) {
-			if(progress == stop) {
+			if (progress == stop) {
 				setValue(stop);
 				setStringPainted(true);
 				String str = "Cropping completed";
 				setString(str);
-			} else{
+			} else {
 				setValue(progress);
+				setString("");
 			}
 		}
 	}

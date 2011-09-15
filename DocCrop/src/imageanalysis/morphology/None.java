@@ -15,6 +15,7 @@ import java.awt.image.BufferedImage;
  */
 public class None extends AbstractOperation {
 
+	@SuppressWarnings("unused")
 	private STRUCTURING_ELEMENT_SHAPE shape;
 
 	public None() {

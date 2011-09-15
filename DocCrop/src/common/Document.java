@@ -15,12 +15,20 @@ import javax.swing.JLabel;
  * @author Tomas Toss 17 maj 2011
  */
 public class Document {
-
+	/**
+	 * Type of document. If the image contains images with only one page
+	 * visible, use SINGLE_PAGE. If the image contains images with both pages
+	 * visible, use DOUBLE_PAGE
+	 */
+	public enum DocumentType {
+		SINGLE_PAGE, DOUBLE_PAGE
+	}
 	private int x;
 	private int y;
 	private int width;
 	private int height;
 	private int rotation;
+	private String id;
 
 	public Document() {
 	}
@@ -53,6 +61,27 @@ public class Document {
 	 *            x-axis in clockwise direction. (-90 <= rotation <= 90)
 	 */
 	public Document(Point loc, int width, int height, int rotation) {
+		this(loc, width, height, rotation, "");
+	}
+
+	/**
+	 * Create document, with the supplied location, size and rotation
+	 * 
+	 * @param loc
+	 *            Center position of the document (x,y >= 0)
+	 * @param width
+	 *            The width of the document (>=0)
+	 * @param height
+	 *            The height of the document (>=0)
+	 * @param rotation
+	 *            The rotation of the document in degrees measured from the
+	 *            x-axis in clockwise direction. (-90 <= rotation <= 90)
+	 * 
+	 * @param id
+	 *            A unique identification for the document, e.g. path to the
+	 *            corresponding file
+	 */
+	public Document(Point loc, int width, int height, int rotation, String id) {
 		if (loc.x < 0 || loc.y < 0)
 			throw new IllegalArgumentException(
 					"The components of the location must be >= 0");
@@ -67,6 +96,7 @@ public class Document {
 		this.height = height;
 		this.width = width;
 		this.rotation = rotation;
+		this.id = id;
 	}
 
 	public Point getLocation() {
@@ -106,6 +136,10 @@ public class Document {
 		return height;
 	}
 
+	public String getId() {
+		return id;
+	}
+
 	public void setHeight(int height) {
 		this.height = height;
 	}
@@ -118,10 +152,15 @@ public class Document {
 		this.rotation = rotation;
 	}
 
+	public void setId(String id) {
+		this.id = id;
+	}
+
 	public int getArea() {
 		return height * width;
 	}
 
+	
 	/**
 	 * Create a Document representation from the set of corner points of a
 	 * rectangle. The height of the document is defined by the difference of the
@@ -185,12 +224,36 @@ public class Document {
 	}
 
 	public String toString() {
-		String toReturn = "x=" + x + ", y=" + y + "\n";
-		toReturn += "width=" + width + ", height=" + height + "\n";
-		toReturn += "rotation=" + rotation;
+		Point[] coords = toArray();
+		String toReturn = id+"\r\n";
+		toReturn += "[" + coords[0].x+","+ coords[0].y +"], ";
+		toReturn += "[" + coords[1].x+","+ coords[1].y +"], ";
+		toReturn += "[" + coords[2].x+","+ coords[2].y +"], ";
+		toReturn += "[" + coords[3].x+","+ coords[3].y +"]\r\n\r\n";
 		return toReturn;
 	}
 
+	public BufferedImage markDocument(BufferedImage img, Color color) {
+		if (this == null || img == null)
+			return null;
+		else {
+			BufferedImage markedImg = ImageUtilities.copyImage(img);
+			Point[] corners = toArray();
+			Graphics g = markedImg.getGraphics();
+			int[] x = new int[corners.length];
+			int[] y = new int[corners.length];
+			for (int i = 0; i < corners.length; i++) {
+				x[i] = corners[i].x;
+				y[i] = corners[i].y;
+			}
+			g.setColor(color);
+			g.fillPolygon(x, y, x.length);
+			g.setColor(Color.BLACK);
+			g.drawPolyline(x, y, x.length);
+			g.dispose();
+			return markedImg;
+		}
+	}
 	public static void main(String[] args) {
 		Document doc = new Document(new Point(200, 200), 100, 150, -10);
 		Point[] points = doc.toArray();

@@ -1,5 +1,6 @@
 package mvc.model;
 
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -8,6 +9,7 @@ import mvc.AbstractModel;
 import mvc.control.ImageBatchController;
 
 import common.Document;
+import common.ImageBatchSettings;
 
 /**
  * A model containing the complete set of image batches currently in use by the
@@ -19,36 +21,23 @@ import common.Document;
  * @author Tomas Toss
  */
 public class ImageBatches extends AbstractModel {
-	private Collection<ImageBatch> batches;
+	private ArrayList<ImageBatch> batches;
 	private Collection<Document> documents;
+	private ImageBatchSettings settings;
+	private int currentAnalyzedBatch;
 
-	/**
-	 * Type of document. If the image contains images with only one page
-	 * visible, use SINGLE_PAGE. IF the image contains images with both pages
-	 * visible, use DOUBLE_PAGE
-	 */
-	public enum DocumentType {
-		SINGLE_PAGE, DOUBLE_PAGE
-	}
-
-	/**
-	 * The behavior of an image batch. If the position of the documents likely
-	 * can be well approximated by a linear curve, use SIMPLE. For more complex
-	 * behavior, use COMPLEX.
-	 */
-	public enum DocumentBehavoir {
-		SIMPLE, COMPLEX
-	}
-
-	public ImageBatches(File[] batches) {
+	public ImageBatches(File[] batches, ImageBatchSettings settings) {
+		this.settings = settings;
 		this.batches = new ArrayList<ImageBatch>();
+		currentAnalyzedBatch = 0;
 		for (int i = 0; i < batches.length; i++) {
-			this.batches.add(new ImageBatch(this, batches[i], ".png"));
+			this.batches.add(new ImageBatch(this, batches[i], settings));
 		}
 	}
 
 	public ImageBatches() {
 		this.batches = new ArrayList<ImageBatch>();
+		settings = new ImageBatchSettings();
 	}
 
 	/**
@@ -58,25 +47,74 @@ public class ImageBatches extends AbstractModel {
 	 *            The new set of batches
 	 */
 	public void setBatches(ImageBatch[] batches) {
-		this.batches = new ArrayList<ImageBatch>(batches.length);
-		for (ImageBatch b : batches)
-			this.batches.add(b);
-		firePropertyChange(ImageBatchController.NEW_BATCHES, null, batches);
+		for (int i = 0; i < batches.length; i++) {
+			batches[i].setParent(this);
+			this.batches.add(batches[i]);
+		}
+		firePropertyChange(ImageBatchController.NEW_BATCHES, null, this);
 	}
 
 	public void updateProgress() {
-		firePropertyChange(ImageBatchController.PROGRESS, "test", "new progess");
+		firePropertyChange(ImageBatchController.PROGRESS, null, "new progess");
 	}
+
+	private BufferedImage oldPreview, newPreview;
+	public void updatePreview(BufferedImage img) {
+		oldPreview = newPreview;
+		newPreview  = img;		
+		firePropertyChange(ImageBatchController.PREVIEW, oldPreview, newPreview);
+		
+	}
+	
 	public ImageBatch[] getBatches() {
 		return batches.toArray(new ImageBatch[batches.size()]);
 	}
-	
+
 	public void setDocuments(Collection<Document> docs) {
 		documents = docs;
 	}
-	
-	public Collection<Document> getDocuments(){
+
+	public Collection<Document> getDocuments() {
 		return documents;
 	}
 
+	public void analyzeBatches() {
+		for (int i = currentAnalyzedBatch; i < batches.size(); i++) {
+			currentAnalyzedBatch = i;
+			if (!batches.get(i).analyzeBatches())
+				return;
+		}
+		currentAnalyzedBatch++;
+		firePropertyChange(ImageBatchController.NEW_DOCUMENTS, null, this);
+	}
+
+	public void setStopRequest(Boolean stopRequest) {
+		batches.get(currentAnalyzedBatch).stopRequest();
+	}
+
+	public void setSettings(ImageBatchSettings settings) {
+		this.settings = settings;
+	}
+	
+	public ImageBatchSettings getSettings() {
+		return settings;
+	}
+	
+	public void setPreviewVisibility(Boolean isVisible) {
+		 firePropertyChange(ImageBatchController.SHOW_PREVIEW, null, isVisible);
+	}
+	
+	public void reset() {
+		for(int i = 0; i < batches.size(); i++) {
+			batches.get(i).setProgress(0);
+		}
+		oldPreview = newPreview = null;
+		currentAnalyzedBatch = 0;
+	}
+	
+	public void clearBatches() {
+		reset();
+		firePropertyChange(ImageBatchController.NEW_BATCHES, batches, null);
+		batches = new ArrayList<ImageBatch>();
+	}
 }

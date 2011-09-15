@@ -1,21 +1,28 @@
 package common;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.image.BufferedImage;
 import java.awt.image.Raster;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JScrollPane;
+
 /**
- * A utility class providing common operations such as reading, scaling and painting, for {@link BufferedImage}.
+ * A utility class providing common operations such as reading, scaling and
+ * painting, for {@link BufferedImage}.
+ * 
  * @author Tomas Toss 16 maj 2011
- *
+ * 
  */
 public final class ImageUtilities {
 	/**
@@ -30,14 +37,23 @@ public final class ImageUtilities {
 	 * @param imagePath
 	 *            the relative path to the image
 	 * @return the read image
-	 * @throws IOException 
+	 * @throws IOException
 	 */
 	public static BufferedImage readImage(String imagePath) throws IOException {
 		BufferedImage buffImg = null;
+		BufferedImage tempImg = null;
 
-			File f = new File(imagePath);
-			buffImg = ImageIO.read(f);
-		System.out.println(f.getPath());
+		File f = new File(imagePath);
+		buffImg = ImageIO.read(f);
+		// Temporary fix for reading TIF files. For some reason the image
+		// type is unknown, and this code cast the image type to
+		// TYPE_INT_RGB
+		if (buffImg.getType() == 0) {
+			tempImg = new BufferedImage(buffImg.getWidth(),
+					buffImg.getHeight(), BufferedImage.TYPE_INT_RGB);
+			tempImg.setData(buffImg.getData());
+			buffImg = tempImg;
+		}
 		return buffImg;
 	}
 
@@ -98,10 +114,11 @@ public final class ImageUtilities {
 					"Input parameter scale must be > 0: " + scale));
 		int w = img.getWidth();
 		int h = img.getHeight();
+		int imgType = img.getType();
 		Image scaledImg = img.getScaledInstance((int) (w * scale),
 				(int) (h * scale), Image.SCALE_DEFAULT);
 		BufferedImage scaledBuffImg = new BufferedImage((int) (w * scale),
-				(int) (h * scale), img.getType());
+				(int) (h * scale), imgType);
 		Graphics g = scaledBuffImg.getGraphics();
 		g.drawImage(scaledImg, 0, 0, null);
 		g.dispose();
@@ -113,8 +130,11 @@ public final class ImageUtilities {
 	}
 
 	/**
-	 * Compute the border color of an image. If the color varies along the border, the most dominant color is chosen
-	 * @param img The image to extract the border color from
+	 * Compute the border color of an image. If the color varies along the
+	 * border, the most dominant color is chosen
+	 * 
+	 * @param img
+	 *            The image to extract the border color from
 	 * @return The (most likely) border color
 	 */
 	public static Color getImageBorderColor(BufferedImage img) {
@@ -170,8 +190,7 @@ public final class ImageUtilities {
 		meanRight[G] = 3 * meanRight[G] / right.length;
 		meanRight[B] = 3 * meanRight[B] / right.length;
 
-		
-		//Set the border color to be the median color of the four mean colors
+		// Set the border color to be the median color of the four mean colors
 		int[] borderColor = new int[3];
 
 		int[] medianR = { meanRight[R], meanLeft[R], meanTop[R], meanLow[R] };
@@ -187,23 +206,38 @@ public final class ImageUtilities {
 		return new Color(borderColor[R], borderColor[G], borderColor[B]);
 	}
 
-
 	/**
 	 * Test function
-	 * @param args filepath to an image
 	 */
 	public static void main(String[] args) {
+		BufferedImage img = null;
+		BufferedImage imgCpy = null;
+		JLabel canvas = null;
+		JFrame frame = new JFrame();
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		File file = new File(
+				"C:\\Users\\Tomas\\Desktop\\Examensarbete\\MATLAB\\Program\\testsekvens\\1.tif");
+		String hej = "s.df";
+		System.out.println(hej.substring(hej.lastIndexOf(".")));
+		System.out.println(file.getName());
 		try {
-		if(args == null) {
-			BufferedImage img = ImageUtilities.readImage("src/images/1.png");
-			System.out.println(getImageBorderColor(img));			
-		} else {
-			BufferedImage img = ImageUtilities.readImage(args[0]);
-			System.out.println(getImageBorderColor(img));			
+
+			img = ImageUtilities
+					.readImage("C:\\Users\\Tomas\\Desktop\\Examensarbete\\MATLAB\\Program\\testsekvens\\1.tif");
+		} catch (IOException e) {
+			// Do nothing
 		}
-		} catch(IOException e) {
-			e.printStackTrace();
-		}
+		imgCpy = new BufferedImage(img.getWidth(), img.getHeight(),
+				BufferedImage.TYPE_INT_RGB);
+		imgCpy.setData(img.getData());
+		imgCpy = ImageUtilities.scaleImage(imgCpy, 0.3);
+
+		canvas = ImageUtilities.createCanvas(imgCpy);
+		JScrollPane pane = new JScrollPane(canvas);
+		pane.setPreferredSize(new Dimension(400, 400));
+		frame.setContentPane(pane);
+		frame.pack();
+		frame.setVisible(true);
 	}
 
 }
